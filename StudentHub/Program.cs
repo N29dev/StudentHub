@@ -5,7 +5,13 @@ using StudentHub.Services;
 var builder = WebApplication.CreateBuilder(args);
 var dataDirectory = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
 Directory.CreateDirectory(dataDirectory);
-builder.Services.AddSingleton(new CampusStore(Path.Combine(dataDirectory, "campus.json")));
+var store = new CampusStore(Path.Combine(dataDirectory, "campus.json"));
+if (builder.Configuration.GetValue<bool>("StudentHub:SeedDemo"))
+{
+    if (DemoData.Seed(store, DateOnly.FromDateTime(DateTime.Today)))
+        Console.WriteLine("Demo data created. See README.md for demo accounts.");
+}
+builder.Services.AddSingleton(store);
 builder.Services.AddSingleton<CampusService>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

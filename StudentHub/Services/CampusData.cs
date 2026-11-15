@@ -68,6 +68,7 @@ public sealed class Completion
 
 public sealed class CampusData
 {
+    public bool DemoSeeded { get; set; }
     public List<CampusAccount> Accounts { get; set; } = [];
     public List<AcademicGroup> Groups { get; set; } = [];
     public List<CourseOffering> Courses { get; set; } = [];

@@ -12,6 +12,24 @@ Install the .NET 8 SDK (or a compatible newer SDK with the .NET 8 runtime).
 
 On Windows PowerShell set `$env:StudentHub__LecturerCode = "local-demo-code"` first, then run the dotnet command. Open http://localhost:5080. Choose your own invitation code; the example is for a local demo, not a production secret.
 
+## Ready-made demo data
+
+To populate a local demo without overwriting existing accounts, run once:
+
+    StudentHub__SeedDemo=true StudentHub__LecturerCode=12345678 dotnet run --project StudentHub --urls http://localhost:5080
+
+On Windows PowerShell set `$env:StudentHub__SeedDemo = "true"` and the lecturer code before starting. This explicitly adds fictional data only once per campus.json file.
+
+| Login | Role | Password |
+| --- | --- | --- |
+| lecturer@demo.test | Lecturer (IT-2507 and IT-2508) | Demo12345 |
+| lecturer2@demo.test | Lecturer (SE-2503) | Demo12345 |
+| student@demo.test | Student (IT-2507) | Demo12345 |
+| student7@demo.test | Student (IT-2508) | Demo12345 |
+| student13@demo.test | Student (SE-2503) | Demo12345 |
+
+There are 18 students total (other logins are student2@demo.test through student18@demo.test), 2 lecturers, 3 groups, 15 courses, 45 assignments, 30 lessons and 72 course grades. Deadlines are relative to the date the dataset is first generated. GPA is calculated automatically; one course per student is ungraded. All names and records are fictional examples. Use demo accounts on localhost only and never on a public deployment.
+
 ## Demo flow
 
 1. Create a lecturer account (select Lecturer and enter the configured invitation code).
@@ -22,7 +40,7 @@ On Windows PowerShell set `$env:StudentHub__LecturerCode = "local-demo-code"` fi
 6. As the lecturer, refresh the group and use Students & grades to set a grade. The student can see their updated GPA after refreshing or navigating.
 7. Edit a profile and optionally upload a PNG/JPEG avatar.
 
-The app creates StudentHub/App_Data/campus.json on the first successful change. To reset the demo, stop the server and back up/delete that file. The earlier single-user JSON and JSON storage, if present, are preserved but not migrated. The application has no external NuGet dependencies; only the test project needs xUnit packages.
+The app creates StudentHub/App_Data/campus.json on the first successful change. To reset the demo, stop the server and back up/delete that file. The earlier single-user JSON and SQLite database, if present, are preserved but not migrated. The application has no external NuGet dependencies; only the test project needs xUnit packages.
 
 ## Test
 
@@ -31,7 +49,7 @@ The app creates StudentHub/App_Data/campus.json on the first successful change. 
 ## Structure
 
 - StudentHub.Core: immutable records, Result<T>, pure functions, transformations and academic rules.
-- StudentHub: Blazor pages, reusable UI, account endpoints, authorization, SQLite database and application services.
+- StudentHub: Blazor pages, reusable UI, account endpoints, authorization, JSON storage and application services.
 - StudentHub.Tests: xUnit unit and integration tests.
 
 The functional core does not access storage, the clock or the UI. The service maps stored records to immutable values, applies validation and saves only successful changes. A lock serializes writes; a temporary file replaces the saved snapshot only after serialization succeeds.

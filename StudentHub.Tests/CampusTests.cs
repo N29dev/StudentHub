@@ -66,6 +66,42 @@ public class CampusTests
     }
 
     [Fact]
+    public void DemoSeedIsIdempotentAndPreservesRealAccounts()
+    {
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "campus.json");
+        try
+        {
+            var store = new CampusStore(path);
+            var service = new CampusService(store, new ConfigurationBuilder().Build());
+            var existing = Assert.IsType<Ok<ProfileInfo>>(service.Register(
+                "Existing", "existing@example.test", "test-password", Roles.Student, "", "")).Value;
+            var today = new DateOnly(2026, 11, 15);
+            Assert.True(DemoData.Seed(store, today));
+            Assert.False(DemoData.Seed(new CampusStore(path), today));
+            var saved = JsonSerializer.Deserialize<CampusData>(File.ReadAllText(path))!;
+            Assert.Equal(21, saved.Accounts.Count);
+            Assert.Equal(3, saved.Groups.Count);
+            Assert.Equal(15, saved.Courses.Count);
+            Assert.Equal(45, saved.Assignments.Count);
+            Assert.Equal(30, saved.Lessons.Count);
+            Assert.Equal(72, saved.Marks.Count);
+            Assert.NotNull(service.GetProfile(existing.Id));
+            var student = Assert.IsType<Ok<ProfileInfo>>(service.Login("student@demo.test", DemoData.Password)).Value;
+            var view = service.StudentData(student.Id);
+            Assert.Equal(15, view.Assignments.Length);
+            Assert.Equal(10, view.Lessons.Length);
+            Assert.Equal(5, view.Assignments.Count(a => a.Completed));
+            Assert.NotNull(view.Courses.Gpa());
+            Assert.Equal(5, view.Courses.Length);
+        }
+        finally
+        {
+            if (Directory.Exists(Path.GetDirectoryName(path)))
+                Directory.Delete(Path.GetDirectoryName(path)!, true);
+        }
+    }
+
+    [Fact]
     public void GradePredictionHandlesFeasibilityAndInvalidValues()
     {
         var a = Assert.IsType<Ok<Prediction>>(GradePrediction.RequiredFinal(85, 40, 90)).Value;
