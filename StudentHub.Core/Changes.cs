@@ -11,13 +11,13 @@ public static class Changes
             : new Ok<string>(value.Trim());
 
     private static Result<Course> ValidateCourse(Course c)
-        => Text(c.Name, "Course name").Bind(name =>
+        => Text(c.Name, "Course name").Bind<Course>(name =>
             c.Credits is < 1 or > 30 ? new Fail<Course>("Credits must be between 1 and 30.") :
             c.Grade is < 0 or > 100 ? new Fail<Course>("Grade must be between 0 and 100.") :
             new Ok<Course>(c with { Name = name }));
 
     public static Result<HubData> SaveCourse(HubData data, Course course)
-        => ValidateCourse(course).Bind(c =>
+        => ValidateCourse(course).Bind<HubData>(c =>
             data.Courses.Any(x => x.Id != c.Id && x.Name.Equals(c.Name, StringComparison.OrdinalIgnoreCase))
                 ? new Fail<HubData>("A course with this name already exists.")
                 : new Ok<HubData>(data with
@@ -33,7 +33,7 @@ public static class Changes
             : new Ok<HubData>(data with { Courses = data.Courses.RemoveAll(c => c.Id == id) });
 
     public static Result<HubData> SaveAssignment(HubData data, Assignment assignment)
-        => Text(assignment.Title, "Assignment title").Bind(title =>
+        => Text(assignment.Title, "Assignment title").Bind<HubData>(title =>
             !data.Courses.Any(c => c.Id == assignment.CourseId) ? new Fail<HubData>("Select a course.") :
             assignment.Importance is < 1 or > 3 ? new Fail<HubData>("Select a valid importance.") :
             assignment.Due == default ? new Fail<HubData>("Choose a due date.") :
@@ -54,7 +54,7 @@ public static class Changes
         => new Ok<HubData>(data with { Assignments = data.Assignments.RemoveAll(a => a.Id == id) });
 
     public static Result<HubData> SaveLesson(HubData data, Lesson lesson)
-        => Text(lesson.Room, "Room", 60).Bind(room =>
+        => Text(lesson.Room, "Room", 60).Bind<HubData>(room =>
             !data.Courses.Any(c => c.Id == lesson.CourseId) ? new Fail<HubData>("Select a course.") :
             !Enum.IsDefined(lesson.Day) ? new Fail<HubData>("Select a valid day.") :
             lesson.Start >= lesson.End ? new Fail<HubData>("End time must be after start time.") :
