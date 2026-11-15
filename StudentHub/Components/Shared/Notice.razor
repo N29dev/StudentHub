@@ -1,0 +1,7 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <p class="notice" role="alert">@Message</p>
+}
+@code {
+    [Parameter] public string? Message { get; set; }
+}

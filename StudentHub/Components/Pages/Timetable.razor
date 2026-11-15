@@ -1,0 +1,89 @@
+@page "/timetable"
+@inject HubStore Store
+<PageTitle>Timetable · StudentHub</PageTitle>
+<header class="page-head"><div><h1>Timetable</h1><p>Your weekly class schedule.</p></div>
+    <button class="button" @onclick="New">New lesson</button>
+</header>
+<Notice Message="@error" />
+@if (editing)
+{
+    <section class="panel editor"><h2>@(id == Guid.Empty ? "New lesson" : "Edit lesson")</h2>
+        <div class="fields">
+            <label>Course<select @bind="courseId"><option value="@Guid.Empty">Select course</option>
+                @foreach (var c in Store.Data.Courses) { <option value="@c.Id">@c.Name</option> }</select></label>
+            <label>Day<select @bind="day">@foreach (var d in days) { <option value="@d">@d</option> }</select></label>
+            <label>Start<input type="time" value="@start" @onchange="e => start = e.Value?.ToString() ?? string.Empty" /></label>
+            <label>End<input type="time" value="@end" @onchange="e => end = e.Value?.ToString() ?? string.Empty" /></label>
+            <label>Room<input @bind="room" maxlength="60" placeholder="e.g. B2.1" /></label>
+        </div>
+        <div class="actions"><button class="button" @onclick="Save">Save</button>
+            <button class="secondary" @onclick="Cancel">Cancel</button></div>
+    </section>
+}
+@{
+    var data = Store.Data;
+}
+@if (deleteId != Guid.Empty)
+{
+    <div class="confirm panel" role="alert">Delete this lesson?
+        <button class="secondary danger" @onclick="Delete">Delete</button>
+        <button class="secondary" @onclick="() => deleteId = Guid.Empty">Cancel</button>
+    </div>
+}
+<div class="week">
+    @foreach (var d in days)
+    {
+        var lessons = data.Lessons.Where(l => l.Day == d).OrderBy(l => l.Start).ToArray();
+        <section class="panel day @(d == DateTime.Today.DayOfWeek ? "current" : "")">
+            <h2>@d</h2>
+            @foreach (var l in lessons)
+            {
+                <div class="class-item" @key="l.Id">
+                    <small>@l.Start.ToString("HH:mm") – @l.End.ToString("HH:mm")</small>
+                    <strong>@data.CourseName(l.CourseId)</strong><small>Room @l.Room</small>
+                    <div class="actions"><button class="quiet" @onclick="() => Edit(l)">Edit</button>
+                        <button class="quiet danger" @onclick="() => deleteId = l.Id">Delete</button></div>
+                </div>
+            }
+            @if (lessons.Length == 0) { <p class="empty">No classes</p> }
+        </section>
+    }
+</div>
+@code {
+    private static readonly DayOfWeek[] days = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+        DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
+    private bool editing;
+    private Guid id, courseId, deleteId;
+    private DayOfWeek day = DayOfWeek.Monday;
+    private string start = "09:00", end = "10:00", room = "";
+    private string? error;
+
+    private void New()
+    {
+        id = Guid.Empty; courseId = Store.Data.Courses.FirstOrDefault()?.Id ?? Guid.Empty;
+        day = DayOfWeek.Monday; start = "09:00"; end = "10:00"; room = ""; error = null; editing = true;
+    }
+    private void Edit(Lesson l)
+    {
+        id = l.Id; courseId = l.CourseId; day = l.Day; start = l.Start.ToString("HH:mm");
+        end = l.End.ToString("HH:mm"); room = l.Room; error = null; editing = true;
+    }
+    private void Cancel() { editing = false; error = null; }
+    private void Save()
+    {
+        if (!TimeOnly.TryParse(start, out var s) || !TimeOnly.TryParse(end, out var e))
+        { error = "Enter valid start and end times."; return; }
+        var l = new Lesson(id == Guid.Empty ? Guid.NewGuid() : id, courseId, day, s, e, room);
+        if (Apply(d => Changes.SaveLesson(d, l))) editing = false;
+    }
+    private void Delete()
+    {
+        if (Apply(d => Changes.DeleteLesson(d, deleteId)))
+        { if (id == deleteId) editing = false; deleteId = Guid.Empty; }
+    }
+    private bool Apply(Func<HubData, Result<HubData>> fn)
+    {
+        error = Store.Change(fn) is Fail<HubData> f ? f.Error : null;
+        return error is null;
+    }
+}

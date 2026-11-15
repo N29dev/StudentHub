@@ -1,0 +1,39 @@
+@if (Items.Count == 0)
+{
+    <p class="empty">No assignments here.</p>
+}
+else
+{
+    <div class="task-list">
+        @foreach (var item in Items)
+        {
+            <div class="task-row" @key="item.Id">
+                <button type="button" class="check @(item.Completed ? "checked" : "")"
+                        title="@(item.Completed ? "Mark incomplete" : "Mark complete")"
+                        aria-label="@($"Toggle completion: {item.Title}")" aria-pressed="@item.Completed"
+                        @onclick="() => Toggle.InvokeAsync(item.Id)">@(item.Completed ? "✓" : "")</button>
+                <div class="task-main">
+                    <strong class="@(item.Completed ? "done" : "")">@item.Title</strong>
+                    <small>@Data.CourseName(item.CourseId) · @item.Due.ToString("dd MMM yyyy")</small>
+                </div>
+                <span class="status @item.Status(Today).ToString().ToLowerInvariant()">@item.Status(Today)</span>
+                @if (ShowActions)
+                {
+                    <div class="actions">
+                        <button class="quiet" @onclick="() => Edit.InvokeAsync(item)">Edit</button>
+                        <button class="quiet danger" @onclick="() => Delete.InvokeAsync(item.Id)">Delete</button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+@code {
+    [Parameter] public IReadOnlyList<Assignment> Items { get; set; } = Array.Empty<Assignment>();
+    [Parameter, EditorRequired] public HubData Data { get; set; } = HubData.Empty;
+    [Parameter] public DateOnly Today { get; set; }
+    [Parameter] public bool ShowActions { get; set; }
+    [Parameter] public EventCallback<Guid> Toggle { get; set; }
+    [Parameter] public EventCallback<Assignment> Edit { get; set; }
+    [Parameter] public EventCallback<Guid> Delete { get; set; }
+}

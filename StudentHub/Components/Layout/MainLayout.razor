@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+@inject HubStore Store
+
+<div class="shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">StudentHub<span> / </span></a>
+        <p class="nav-caption">Workspace</p>
+        <nav aria-label="Main navigation">
+            <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
+            <NavLink href="/assignments">Assignments</NavLink>
+            <NavLink href="/courses">Courses &amp; GPA</NavLink>
+            <NavLink href="/timetable">Timetable</NavLink>
+        </nav>
+        <div class="sidebar-footer">Academic planner<br /><small>Local workspace</small></div>
+    </aside>
+    <main>
+        @if (Store.LoadError is not null)
+        {
+            <Notice Message="@Store.LoadError" />
+        }
+        @Body
+    </main>
+</div>

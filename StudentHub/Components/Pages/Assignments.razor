@@ -1,0 +1,101 @@
+@page "/assignments"
+@inject HubStore Store
+<PageTitle>Assignments · StudentHub</PageTitle>
+
+<header class="page-head"><div><h1>Assignments</h1><p>Track deadlines and prioritize your work.</p></div>
+    <button class="button" @onclick="New">New assignment</button>
+</header>
+
+<Notice Message="@error" />
+@if (editing)
+{
+    <section class="panel editor">
+        <h2>@(id == Guid.Empty ? "New assignment" : "Edit assignment")</h2>
+        <div class="fields">
+            <label>Title<input @bind="title" maxlength="100" placeholder="Assignment name" /></label>
+            <label>Course<select @bind="courseId">
+                <option value="@Guid.Empty">Select course</option>
+                @foreach (var c in Store.Data.Courses) { <option value="@c.Id">@c.Name</option> }
+            </select></label>
+            <label>Due date<input type="date" @bind="due" /></label>
+            <label>Importance<select @bind="importance"><option value="1">Low</option>
+                <option value="2">Normal</option><option value="3">High</option></select></label>
+        </div>
+        <div class="actions"><button class="button" @onclick="Save">Save</button>
+            <button class="secondary" @onclick="Cancel">Cancel</button></div>
+    </section>
+}
+@{
+    var data = Store.Data;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    Func<Assignment, bool> predicate = filter switch
+    {
+        "active" => a => !a.Completed,
+        "done" => a => a.Completed,
+        "overdue" => a => a.Status(today) == TaskStatus.Overdue,
+        _ => _ => true
+    };
+    var filtered = data.Assignments.Filter(predicate, search).Where(a => courseFilter == Guid.Empty || a.CourseId == courseFilter);
+    var items = sort == "priority" ? filtered.Plan(today).Concat(filtered.Where(a => a.Completed).OrderBy(a => a.Due))
+        : filtered.OrderBy(a => a.Completed).ThenBy(a => a.Due);
+}
+<section class="panel">
+    <div class="filters">
+        <label>Search<input placeholder="Find an assignment" @bind="search" @bind:event="oninput" /></label>
+        <label>Status<select @bind="filter"><option value="all">All</option><option value="active">Active</option>
+            <option value="done">Completed</option><option value="overdue">Overdue</option></select></label>
+        <label>Course<select @bind="courseFilter"><option value="@Guid.Empty">All courses</option>
+            @foreach (var c in data.Courses) { <option value="@c.Id">@c.Name</option> }</select></label>
+        <label>Sort<select @bind="sort"><option value="due">Due date</option><option value="priority">Smart priority</option></select></label>
+    </div>
+    <TaskList Items="@items.ToArray()" Data="@data" Today="@today" ShowActions="true"
+              Toggle="Toggle" Edit="Edit" Delete="RequestDelete" />
+    @if (deleteId != Guid.Empty)
+    {
+        <div class="confirm" role="alert">Delete this assignment?
+            <button class="secondary danger" @onclick="Delete">Delete</button>
+            <button class="secondary" @onclick="() => deleteId = Guid.Empty">Cancel</button>
+        </div>
+    }
+</section>
+
+@code {
+    private bool editing;
+    private Guid id, courseId, courseFilter, deleteId;
+    private string title = "", search = "", filter = "all", sort = "due";
+    private DateTime due = DateTime.Today;
+    private int importance = 2;
+    private bool completed;
+    private string? error;
+
+    private void New()
+    {
+        id = Guid.Empty; title = ""; due = DateTime.Today; importance = 2; completed = false;
+        courseId = Store.Data.Courses.FirstOrDefault()?.Id ?? Guid.Empty;
+        error = null; editing = true;
+    }
+    private void Edit(Assignment a)
+    {
+        id = a.Id; courseId = a.CourseId; title = a.Title; due = a.Due.ToDateTime(TimeOnly.MinValue);
+        importance = a.Importance; completed = a.Completed; error = null; editing = true;
+    }
+    private void Cancel() { editing = false; error = null; }
+    private void Save()
+    {
+        var a = new Assignment(id == Guid.Empty ? Guid.NewGuid() : id, courseId, title,
+            DateOnly.FromDateTime(due), importance, completed);
+        if (Apply(d => Changes.SaveAssignment(d, a))) editing = false;
+    }
+    private void Toggle(Guid value) { Apply(d => Changes.ToggleAssignment(d, value)); }
+    private void RequestDelete(Guid value) { deleteId = value; }
+    private void Delete()
+    {
+        if (Apply(d => Changes.DeleteAssignment(d, deleteId)))
+        { if (id == deleteId) editing = false; deleteId = Guid.Empty; }
+    }
+    private bool Apply(Func<HubData, Result<HubData>> fn)
+    {
+        error = Store.Change(fn) is Fail<HubData> f ? f.Error : null;
+        return error is null;
+    }
+}
