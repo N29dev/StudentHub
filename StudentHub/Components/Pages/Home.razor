@@ -12,7 +12,7 @@
     var today = DateOnly.FromDateTime(DateTime.Today);
     var pending = data.Assignments.Count(a => !a.Completed);
     var done = data.Assignments.Count(a => a.Completed);
-    var late = data.Assignments.Count(a => a.Status(today) == TaskStatus.Overdue);
+    var late = data.Assignments.Count(a => a.Status(today) == AssignmentStatus.Overdue);
     var percent = data.Assignments.Length == 0 ? 0 : 100 * done / data.Assignments.Length;
 }
 <div class="stats">

@@ -15,4 +15,4 @@ public record HubData(ImmutableArray<Course> Courses, ImmutableArray<Assignment>
 }
 
 public record CourseProgress(Course Course, int Done, int Total);
-public enum TaskStatus { Done, Overdue, Today, Upcoming }
+public enum AssignmentStatus { Done, Overdue, Today, Upcoming }

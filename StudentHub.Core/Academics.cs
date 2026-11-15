@@ -16,15 +16,15 @@ public static class Academics
         var graded = courses.Where(c => c.Grade.HasValue).ToArray();
         var credits = graded.Sum(c => c.Credits);
         return credits == 0 ? null :
-            decimal.Round(graded.Sum(c => GradePoints(c.Grade!.Value) * c.Credits) / credits, 2);
+            decimal.Round(graded.Sum(c => GradePoints(c.Grade!.Value) * c.Credits) / credits, 2, MidpointRounding.AwayFromZero);
     }
 
-    public static TaskStatus Status(this Assignment a, DateOnly today) => a switch
+    public static AssignmentStatus Status(this Assignment a, DateOnly today) => a switch
     {
-        { Completed: true } => TaskStatus.Done,
-        _ when a.Due < today => TaskStatus.Overdue,
-        _ when a.Due == today => TaskStatus.Today,
-        _ => TaskStatus.Upcoming
+        { Completed: true } => AssignmentStatus.Done,
+        _ when a.Due < today => AssignmentStatus.Overdue,
+        _ when a.Due == today => AssignmentStatus.Today,
+        _ => AssignmentStatus.Upcoming
     };
 
     // Earlier deadlines and higher importance increase priority.

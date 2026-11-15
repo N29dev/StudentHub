@@ -32,7 +32,7 @@
     {
         "active" => a => !a.Completed,
         "done" => a => a.Completed,
-        "overdue" => a => a.Status(today) == TaskStatus.Overdue,
+        "overdue" => a => a.Status(today) == AssignmentStatus.Overdue,
         _ => _ => true
     };
     var filtered = data.Assignments.Filter(predicate, search).Where(a => courseFilter == Guid.Empty || a.CourseId == courseFilter);

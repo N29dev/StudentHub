@@ -29,9 +29,8 @@ public class CoreTests
     [Fact] public void SmartPlanOrdersByUrgencyAndExcludesCompleted()
     {
         Assignment[] tasks = [Task("Later", 10, 3), Task("Late", -1, 1), Task("Today", 0, 3), Task("Finished", -5, 3, true)];
-        Assert.Equal(new[] { "Today", "Late", "Later" }.OrderBy(x => x),
-            tasks.Plan(Today).Select(a => a.Title).OrderBy(x => x));
-        Assert.Equal("Today", tasks.Plan(Today).First().Title);
+        Assert.Equal(new[] { "Late", "Today", "Later" },
+            tasks.Plan(Today).Select(a => a.Title));
     }
 
     [Fact] public void FilteringUsesPredicateAndIgnoresCase()

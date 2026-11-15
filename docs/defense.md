@@ -31,7 +31,7 @@ The core uses records and ImmutableArray. Changes returns a new HubData value in
 - Composition: Filter composes title extraction and uppercase normalization.
 - Map versus Bind: Map transforms success; Bind chains operations that return another Result. Both propagate failure without calling the next function.
 - LINQ: Where, Select, Sum, OrderBy, Grouping-like per-course projection.
-- Pattern matching: grade thresholds, TaskStatus and Ok/Fail.
+- Pattern matching: grade thresholds, AssignmentStatus and Ok/Fail.
 
 ## Suggested presentation outline
 1. Team members (add both real names), topic, aim and objectives.
