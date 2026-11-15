@@ -71,6 +71,16 @@ public static class AccountEndpoints
             <label id="group-field">Group join code (optional)<input name="groupCode" maxlength="30"></label>
             <label id="lecturer-field" hidden>Lecturer invitation code<input name="lecturerCode" type="password"></label>
             """ : "";
+        var demoEnabled = ctx.RequestServices.GetRequiredService<IConfiguration>()
+            .GetValue("StudentHub:SeedDemo", true);
+        var showDemo = !register && demoEnabled &&
+            ctx.RequestServices.GetRequiredService<CampusService>().HasDemoData;
+        var demo = showDemo ? """
+            <div class="demo-logins"><p>Try a demo account</p>
+            <button type="button" class="secondary" data-demo="student@demo.test">Student</button>
+            <button type="button" class="secondary" data-demo="lecturer@demo.test">Lecturer</button>
+            <small>Password: Demo12345</small></div>
+            """ : "";
         var other = register ? "Already registered? <a href='/login'>Sign in</a>" :
             "New to StudentHub? <a href='/register'>Create an account</a>";
         return Results.Content($$"""
@@ -81,10 +91,10 @@ public static class AccountEndpoints
             <form method="post" action="{{path}}" class="auth-form">
             <input type="hidden" name="__RequestVerificationToken" value="{{token}}">
             {{fields}}
-            <label>Email<input type="email" name="email" required maxlength="200" autocomplete="email"></label>
-            <label>Password<input type="password" name="password" required minlength="8" maxlength="128" autocomplete="{{(register ? "new-password" : "current-password")}}"></label>
-            <button class="button" type="submit">{{title}}</button></form><p class="auth-other">{{other}}</p></div>
-            <script>const role=document.getElementById('role');if(role){const sync=()=>{document.getElementById('group-field').hidden=role.value==='Lecturer';document.getElementById('lecturer-field').hidden=role.value!=='Lecturer';};role.addEventListener('change',sync);sync();}</script>
+            <label>Email<input type="email" name="email" id="email" required maxlength="200" autocomplete="email"></label>
+            <label>Password<input type="password" name="password" id="password" required minlength="8" maxlength="128" autocomplete="{{(register ? "new-password" : "current-password")}}"></label>
+            <button class="button" type="submit">{{title}}</button></form>{{demo}}<p class="auth-other">{{other}}</p></div>
+            <script>const role=document.getElementById('role');if(role){const sync=()=>{document.getElementById('group-field').hidden=role.value==='Lecturer';document.getElementById('lecturer-field').hidden=role.value!=='Lecturer';};role.addEventListener('change',sync);sync();}document.querySelectorAll('[data-demo]').forEach(b=>b.addEventListener('click',()=>{document.getElementById('email').value=b.dataset.demo;document.getElementById('password').value='Demo12345';}));</script>
             </body></html>
             """, "text/html; charset=utf-8");
     }

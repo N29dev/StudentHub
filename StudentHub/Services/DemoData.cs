@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace StudentHub.Services;
 
-// Fictional sample data for the exam demonstration. Only enabled explicitly at startup.
+// Fictional sample data for the exam demonstration. Enabled by default for the local exam demo.
 public static class DemoData
 {
     public const string Password = "Demo12345";

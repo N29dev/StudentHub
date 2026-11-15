@@ -52,6 +52,8 @@ public sealed class CampusService(CampusStore store, IConfiguration config)
         => new(a.Id, a.Email, a.Name, a.Role, a.Program, a.Avatar, a.GroupId,
             a.GroupId is Guid id ? db.Groups.FirstOrDefault(item => item.Id == id)?.Name : null);
 
+    public bool HasDemoData => store.Snapshot.DemoSeeded;
+
     public ProfileInfo? GetProfile(Guid id)
     {
         var db = store.Snapshot;

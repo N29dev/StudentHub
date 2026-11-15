@@ -8,17 +8,13 @@ Install the .NET 8 SDK (or a compatible newer SDK with the .NET 8 runtime).
 
     git clone https://github.com/N29dev/StudentHub.git
     cd StudentHub
-    StudentHub__LecturerCode=local-demo-code dotnet run --project StudentHub --urls http://localhost:5080
+    dotnet run --project StudentHub
 
-On Windows PowerShell set `$env:StudentHub__LecturerCode = "local-demo-code"` first, then run the dotnet command. Open http://localhost:5080. Choose your own invitation code; the example is for a local demo, not a production secret.
+Open http://localhost:5080. Demo mode starts automatically on localhost, including sample data and the lecturer registration code `12345678`. No environment variables are required.
 
 ## Ready-made demo data
 
-To populate a local demo without overwriting existing accounts, run once:
-
-    StudentHub__SeedDemo=true StudentHub__LecturerCode=12345678 dotnet run --project StudentHub --urls http://localhost:5080
-
-On Windows PowerShell set `$env:StudentHub__SeedDemo = "true"` and the lecturer code before starting. This explicitly adds fictional data only once per campus.json file.
+The fictional dataset is created automatically once per campus.json file without overwriting existing accounts. The login page includes buttons to fill the student and lecturer demo credentials.
 
 | Login | Role | Password |
 | --- | --- | --- |
@@ -28,7 +24,7 @@ On Windows PowerShell set `$env:StudentHub__SeedDemo = "true"` and the lecturer 
 | student7@demo.test | Student (IT-2508) | Demo12345 |
 | student13@demo.test | Student (SE-2503) | Demo12345 |
 
-There are 18 students total (other logins are student2@demo.test through student18@demo.test), 2 lecturers, 3 groups, 15 courses, 45 assignments, 30 lessons and 72 course grades. Deadlines are relative to the date the dataset is first generated. GPA is calculated automatically; one course per student is ungraded. All names and records are fictional examples. Use demo accounts on localhost only and never on a public deployment.
+There are 18 students total (other logins are student2@demo.test through student18@demo.test), 2 lecturers, 3 groups, 15 courses, 45 assignments, 30 lessons and 72 course grades. Deadlines are relative to the date the dataset is first generated. GPA is calculated automatically; one course per student is ungraded. All names and records are fictional examples. Demo mode rejects non-loopback requests. For a non-demo installation, set StudentHub__SeedDemo=false and provide your own lecturer code; start with a separate, empty data file (disabling the flag does not delete previously created demo accounts). Never use shared demo passwords on a public deployment.
 
 ## Demo flow
 
