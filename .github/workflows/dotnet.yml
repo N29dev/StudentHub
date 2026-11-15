@@ -1,0 +1,20 @@
+name: .NET build and tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore StudentHub.Tests/StudentHub.Tests.csproj
+      - run: dotnet build StudentHub.Tests/StudentHub.Tests.csproj --no-restore -c Release
+      - run: dotnet test StudentHub.Tests/StudentHub.Tests.csproj --no-build -c Release
