@@ -41,7 +41,7 @@ public class CoreTests
     {
         Result<int> result = new Fail<int>("invalid");
         Assert.Equal("invalid", Assert.IsType<Fail<string>>(result.Map(n => n.ToString())
-            .Bind(s => new Ok<string>(s))).Error);
+            .Bind<string>(s => new Ok<string>(s))).Error);
         Assert.Equal(6, Assert.IsType<Ok<int>>(new Ok<int>(2).Map(x => x * 3)).Value);
     }
 

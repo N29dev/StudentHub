@@ -36,7 +36,7 @@ public class CampusTests
         var code = Assert.Single(service.MyGroups(teacher.Id)).JoinCode;
         var student = Assert.IsType<Ok<ProfileInfo>>(service.Register("Student", "student@example.test", password, Roles.Student, "", code)).Value;
         var outsider = Assert.IsType<Ok<ProfileInfo>>(service.Register("Other student", "student2@example.test", password, Roles.Student, "", "")).Value;
-        Assert.Equal(group, student.GroupId);
+        Assert.Equal<Guid?>(group, student.GroupId);
         var c = new Course(Guid.NewGuid(), "Functional Programming", 5, null);
         Assert.IsType<Fail<bool>>(service.SaveCourse(student.Id, group, c));
         Assert.IsType<Fail<bool>>(service.SaveCourse(otherTeacher.Id, group, c));
@@ -50,7 +50,7 @@ public class CampusTests
         Assert.True(Assert.Single(service.StudentData(student.Id).Assignments).Completed);
         Assert.IsType<Fail<bool>>(service.SetGrade(student.Id, group, student.Id, c.Id, 100));
         Assert.IsType<Ok<bool>>(service.SetGrade(teacher.Id, group, student.Id, c.Id, 95));
-        Assert.Equal(4m, service.StudentData(student.Id).Courses.Gpa());
+        Assert.Equal<decimal?>(4m, service.StudentData(student.Id).Courses.Gpa());
         Assert.Equal(1, Assert.Single(service.ViewGroup(teacher.Id, group).Students).Completed);
         Assert.Empty(service.ViewGroup(otherTeacher.Id, group).Students);
         Assert.IsType<Ok<bool>>(service.JoinGroup(outsider.Id, code));

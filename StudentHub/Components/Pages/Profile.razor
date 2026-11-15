@@ -23,7 +23,7 @@
             @if (p.Role == Roles.Student)
             {
                 <label>Academic group<input value="@(p.GroupName ?? "Not enrolled")" readonly /></label>
-                <label>Student ID<input value="@p.Id.ToString("N")[..8].ToUpperInvariant()" readonly /></label>
+                <label>StudentHub ID<input value="@(p.Id.ToString("N")[..8].ToUpperInvariant())" readonly /></label>
                 <label>Current GPA<input value="@(Campus.StudentData(UserId).Courses.Gpa()?.ToString("0.00") ?? "—")" readonly /></label>
             }
         </div>
