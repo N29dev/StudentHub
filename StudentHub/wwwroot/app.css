@@ -11,3 +11,5 @@
 @media(prefers-color-scheme:dark){.avatar{background:#293b55;color:#b8d1ff}.join-code{background:#29333e}.success-message{background:#294535;color:#b5d9bb;border-color:#3d6046}}
 
 .demo-logins{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center}.demo-logins p,.demo-logins small{flex-basis:100%;font-size:13px;color:var(--muted)}
+
+.project-credit{margin-top:32px;padding-top:14px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;text-align:center}

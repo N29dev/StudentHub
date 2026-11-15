@@ -1,5 +1,9 @@
 # Project and defense notes
 
+Nurlybek Yesbolganov · Amir Oshanbay · IT-2507
+
+Astana IT University · Introduction to Functional Programming · 2026
+
 ## Topic, aim and objectives
 StudentHub — Functional Academic Management System. Aim: help students and lecturers organize courses, assignments, grades and weekly lessons. Objectives: centralized group data, GPA calculation, task prioritization, schedule conflict detection, role-based access and functional programming.
 
@@ -52,7 +56,7 @@ erDiagram
 - Side effects: file writes and authentication are outside the functional core.
 
 ## Suggested presentation outline
-1. Team members (both real names), topic, aim and objectives.
+1. Team members (Nurlybek Yesbolganov and Amir Oshanbay, IT-2507), topic, aim and objectives.
 2. Problem and practical significance.
 3. Technology comparison and reasons for choices.
 4. Architecture and logical data diagram.

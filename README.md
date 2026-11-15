@@ -2,6 +2,12 @@
 
 An academic management system built with C#, Blazor and JSON for Introduction to Functional Programming.
 
+**Final project · Introduction to Functional Programming**
+
+Astana IT University · IT-2507 · 2026
+
+Team members: Nurlybek Yesbolganov and Amir Oshanbay.
+
 ## Run locally
 
 Install the .NET 8 SDK (or a compatible newer SDK with the .NET 8 runtime).
