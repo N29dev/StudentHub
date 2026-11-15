@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
-@inject HubStore Store
+@inject CampusService Campus
+@using System.Security.Claims
 
 <div class="shell">
     <aside class="sidebar">
@@ -7,17 +8,29 @@
         <p class="nav-caption">Workspace</p>
         <nav aria-label="Main navigation">
             <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
-            <NavLink href="/assignments">Assignments</NavLink>
-            <NavLink href="/courses">Courses &amp; GPA</NavLink>
-            <NavLink href="/timetable">Timetable</NavLink>
+            <AuthorizeView Roles="Student">
+                <NavLink href="/assignments">Assignments</NavLink>
+                <NavLink href="/courses">Courses &amp; GPA</NavLink>
+                <NavLink href="/timetable">Timetable</NavLink>
+                <NavLink href="/predict">Grade prediction</NavLink>
+            </AuthorizeView>
+            <AuthorizeView Roles="Lecturer"><NavLink href="/lecturer">Manage groups</NavLink></AuthorizeView>
+            <NavLink href="/profile">My profile</NavLink>
         </nav>
-        <div class="sidebar-footer">Academic planner<br /><small>Local workspace</small></div>
+        <div class="sidebar-footer">
+            <AuthorizeView>
+                @if (Guid.TryParse(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId)
+                     && Campus.GetProfile(userId) is { } profile)
+                {
+                    <a class="account-link" href="/profile"><Avatar Profile="@profile" />
+                        <span><strong>@profile.Name</strong><small>@profile.Role</small></span></a>
+                }
+                <form action="/logout" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit" class="secondary logout">Sign out</button>
+                </form>
+            </AuthorizeView>
+        </div>
     </aside>
-    <main>
-        @if (Store.LoadError is not null)
-        {
-            <Notice Message="@Store.LoadError" />
-        }
-        @Body
-    </main>
+    <main>@Body</main>
 </div>

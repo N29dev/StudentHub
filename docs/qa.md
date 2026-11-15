@@ -1,17 +1,20 @@
-# Manual QA checklist (to execute before submission)
+# Manual QA checklist
 
-Record pass/fail and actual browser/device for every item. Do not mark tests passed until performed.
+Record the actual browser/device and result. Only mark checks after performing them.
 
-- [ ] Launch using the README commands.
-- [ ] Open overview, assignments, courses and timetable; verify navigation.
-- [ ] Add a course; reject duplicate names and out-of-range grades.
-- [ ] Edit credits and grade; verify GPA recalculation.
-- [ ] Create and edit assignments; search by title and filter by course/status.
-- [ ] Complete and reopen an assignment; verify dashboard counts.
-- [ ] Sort by smart priority; inspect overdue and upcoming items.
-- [ ] Add a lesson; reject invalid times and overlaps; allow adjacent periods.
-- [ ] Delete a lesson and assignment; delete their course only after dependencies are removed.
-- [ ] Restart the server; verify persisted changes.
-- [ ] Check narrow mobile viewport (~375px), desktop and keyboard navigation.
-- [ ] Check two browsers and system light/dark mode.
-- [ ] Run dotnet test StudentHub.Tests and record the output.
+- [ ] Run the application and register a lecturer with a valid invitation code.
+- [ ] Reject an invalid lecturer code, duplicate email and wrong login password.
+- [ ] Create a group, add a course, and publish an assignment.
+- [ ] Register a student with the group code in a separate browser session.
+- [ ] Verify students cannot open lecturer management or edit official grades.
+- [ ] Complete/reopen assignments; test search, course/status filter and priority sorting.
+- [ ] Verify another student has independent completion status and grades.
+- [ ] Add a timetable lesson, reject overlap, allow back-to-back times.
+- [ ] Save a grade as lecturer; check the student GPA after refresh.
+- [ ] Edit/delete course, lesson and task; confirm dependencies are handled.
+- [ ] Check grade prediction with possible, impossible and invalid target inputs.
+- [ ] Edit profile, upload PNG/JPEG, reject oversized file, remove picture.
+- [ ] Sign out, then try opening a protected page.
+- [ ] Restart server and verify SQLite data persists.
+- [ ] Check desktop/mobile viewport, two browsers, keyboard and system light/dark mode.
+- [ ] Run dotnet test StudentHub.Tests/StudentHub.Tests.csproj and record results.

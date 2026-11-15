@@ -1,63 +1,74 @@
 @page "/"
-@inject HubStore Store
+@attribute [Authorize]
+@inherits CampusPage
 <PageTitle>Overview · StudentHub</PageTitle>
 
-<header class="page-head">
-    <div><p class="eyebrow">@DateTime.Today.ToString("dddd, d MMMM yyyy")</p><h1>Overview</h1>
-    <p>Keep track of your semester.</p></div>
-    <a class="button" href="/assignments">Manage assignments</a>
-</header>
-@{
-    var data = Store.Data;
-    var today = DateOnly.FromDateTime(DateTime.Today);
-    var pending = data.Assignments.Count(a => !a.Completed);
-    var done = data.Assignments.Count(a => a.Completed);
-    var late = data.Assignments.Count(a => a.Status(today) == AssignmentStatus.Overdue);
-    var percent = data.Assignments.Length == 0 ? 0 : 100 * done / data.Assignments.Length;
+@if (Current is { } p)
+{
+    <header class="page-head">
+        <div><p class="eyebrow">@DateTime.Today.ToString("dddd, d MMMM yyyy")</p>
+            <h1>Welcome, @p.Name.Split(' ')[0]</h1><p>@(p.GroupName ?? (p.Role == Roles.Lecturer ? "Lecturer workspace" : "Student workspace"))</p></div>
+        <a class="button" href="@(p.Role == Roles.Lecturer ? "/lecturer" : "/assignments")">@(p.Role == Roles.Lecturer ? "Manage groups" : "View assignments")</a>
+    </header>
+    @if (p.Role == Roles.Lecturer)
+    {
+        var groups = Campus.MyGroups(UserId);
+        var views = groups.Select(g => Campus.ViewGroup(UserId, g.Id)).ToArray();
+        <div class="stats three">
+            <Stat Label="Groups" Value="@groups.Length.ToString()" Detail="Academic groups" />
+            <Stat Label="Students" Value="@views.Sum(v => v.Students.Length).ToString()" Detail="Enrolled students" />
+            <Stat Label="Assignments" Value="@views.Sum(v => v.Data.Assignments.Length).ToString()" Detail="Published tasks" />
+        </div>
+        <section class="panel"><div class="section-head"><h2>My groups</h2><a href="/lecturer">Manage →</a></div>
+            @foreach (var g in groups)
+            {
+                <div class="lesson-row"><strong>@g.Name</strong><small>Join code: @g.JoinCode</small></div>
+            }
+            @if (groups.Length == 0) { <p class="empty">Create a group and share its join code with students.</p> }
+        </section>
+    }
+    else
+    {
+        var data = Campus.StudentData(UserId);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var done = data.Assignments.Count(a => a.Completed);
+        var pending = data.Assignments.Length - done;
+        var late = data.Assignments.Count(a => a.Status(today) == AssignmentStatus.Overdue);
+        <Notice Message="@error" />
+        @if (p.GroupId is null)
+        {
+            <section class="panel"><h2>Join a group to get started</h2><p class="muted">Your lecturer will provide a join code.</p><a class="button" href="/profile">Join group</a></section>
+        }
+        <div class="stats">
+            <Stat Label="Current GPA" Value="@(data.Courses.Gpa()?.ToString("0.00") ?? "—")" Detail="out of 4.00" />
+            <Stat Label="Due assignments" Value="@pending.ToString()" Detail="@($"{late} overdue")" />
+            <Stat Label="Completed" Value="@($"{done}/{data.Assignments.Length}")" Detail="Assignments" />
+            <Stat Label="Credits" Value="@data.Courses.Sum(c => c.Credits).ToString()" Detail="@($"{data.Courses.Length} courses")" />
+        </div>
+        <div class="dashboard">
+            <section class="panel"><div class="section-head"><div><h2>Up next</h2><p>Ranked by urgency and importance.</p></div><a href="/assignments">All tasks →</a></div>
+                <TaskList Items="@data.Assignments.Plan(today).Take(5).ToArray()" Data="@data" Today="@today" Toggle="Toggle" />
+            </section>
+            <section class="panel"><div class="section-head"><h2>Today's classes</h2><a href="/timetable">Schedule →</a></div>
+                @foreach (var l in data.Lessons.Where(l => l.Day == today.DayOfWeek).OrderBy(l => l.Start))
+                {
+                    <div class="lesson-row"><strong>@data.CourseName(l.CourseId)</strong><small>@l.Start.ToString("HH:mm") – @l.End.ToString("HH:mm") · @l.Room</small></div>
+                }
+                @if (!data.Lessons.Any(l => l.Day == today.DayOfWeek)) { <p class="empty">No classes scheduled today.</p> }
+            </section>
+            <section class="panel wide"><div class="section-head"><h2>Course progress</h2><a href="/courses">Courses →</a></div>
+                @foreach (var progress in data.Progress())
+                {
+                    <div class="progress-row"><div><strong>@progress.Course.Name</strong><small>@progress.Done / @progress.Total tasks</small></div>
+                        <progress value="@progress.Done" max="@Math.Max(1, progress.Total)" aria-label="@progress.Course.Name"></progress></div>
+                }
+                @if (data.Courses.IsEmpty) { <p class="empty">Your lecturer has not added courses yet.</p> }
+            </section>
+        </div>
+    }
 }
-<div class="stats">
-    <Stat Label="Current GPA" Value="@(data.Courses.Gpa()?.ToString("0.00") ?? "—")" Detail="out of 4.00" />
-    <Stat Label="Due assignments" Value="@pending.ToString()" Detail="@($"{late} overdue")" />
-    <Stat Label="Completed" Value="@($"{percent}%")" Detail="@($"{done} of {data.Assignments.Length} tasks")" />
-    <Stat Label="Credits" Value="@data.Courses.Sum(c => c.Credits).ToString()" Detail="@($"{data.Courses.Length} courses")" />
-</div>
-<Notice Message="@error" />
-<div class="dashboard">
-    <section class="panel">
-        <div class="section-head"><div><h2>Up next</h2><p>Ranked by urgency and importance.</p></div>
-            <a href="/assignments">All tasks →</a></div>
-        <TaskList Items="@data.Assignments.Plan(today).Take(5).ToArray()" Data="@data"
-                  Today="@today" Toggle="Toggle" />
-    </section>
-    <section class="panel">
-        <div class="section-head"><div><h2>Today's classes</h2><p>@today.ToString("dddd")</p></div>
-            <a href="/timetable">Schedule →</a></div>
-        @foreach (var l in data.Lessons.Where(l => l.Day == today.DayOfWeek).OrderBy(l => l.Start))
-        {
-            <div class="lesson-row"><strong>@data.CourseName(l.CourseId)</strong>
-                <small>@l.Start.ToString("HH:mm") – @l.End.ToString("HH:mm") · @l.Room</small></div>
-        }
-        @if (!data.Lessons.Any(l => l.Day == today.DayOfWeek))
-        {
-            <p class="empty">No classes scheduled today.</p>
-        }
-    </section>
-    <section class="panel wide">
-        <div class="section-head"><div><h2>Course progress</h2><p>Completed assignments by course.</p></div>
-            <a href="/courses">All courses →</a></div>
-        @foreach (var p in data.Progress())
-        {
-            <div class="progress-row">
-                <div><strong>@p.Course.Name</strong><small>@p.Done / @p.Total tasks</small></div>
-                <progress value="@p.Done" max="@Math.Max(1, p.Total)" aria-label="@p.Course.Name"></progress>
-            </div>
-        }
-        @if (data.Courses.IsEmpty) { <p class="empty">Add a course to see progress.</p> }
-    </section>
-</div>
 
 @code {
     private string? error;
-    private void Toggle(Guid id) => error = Store.Change(d => Changes.ToggleAssignment(d, id))
-        is Fail<HubData> f ? f.Error : null;
+    private void Toggle(Guid id) => error = Campus.Toggle(UserId, id) is Fail<bool> f ? f.Error : null;
 }

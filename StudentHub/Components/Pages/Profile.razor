@@ -1,0 +1,68 @@
+@page "/profile"
+@attribute [Authorize]
+@inherits CampusPage
+@inject NavigationManager Nav
+<PageTitle>Profile · StudentHub</PageTitle>
+
+<header class="page-head"><div><h1>My profile</h1><p>Manage your academic information.</p></div></header>
+<Notice Message="@error" />
+@if (Current is { } p)
+{
+    <section class="panel profile-panel">
+        <div class="profile-heading"><Avatar Profile="@p" Large="true" />
+            <div><h2>@p.Name</h2><p class="muted">@p.Role · @(p.GroupName ?? "No group")</p></div></div>
+        <div class="actions"><label class="upload-label">Change picture
+            <InputFile OnChange="Upload" accept="image/png,image/jpeg" /></label>
+            @if (p.Avatar is not null) { <button class="secondary" @onclick="Remove">Remove picture</button> }
+        </div>
+        <p class="muted">PNG or JPEG, up to 512 KB.</p>
+        <div class="fields">
+            <label>Full name<input @bind="name" maxlength="100" /></label>
+            <label>@(p.Role == Roles.Lecturer ? "Department" : "Educational program")<input @bind="program" maxlength="100" /></label>
+            <label>Email<input value="@p.Email" readonly /></label>
+            @if (p.Role == Roles.Student)
+            {
+                <label>Academic group<input value="@(p.GroupName ?? "Not enrolled")" readonly /></label>
+                <label>Student ID<input value="@p.Id.ToString("N")[..8].ToUpperInvariant()" readonly /></label>
+                <label>Current GPA<input value="@(Campus.StudentData(UserId).Courses.Gpa()?.ToString("0.00") ?? "—")" readonly /></label>
+            }
+        </div>
+        <button class="button" @onclick="Save">Save profile</button>
+    </section>
+    @if (p.Role == Roles.Student && p.GroupId is null)
+    {
+        <section class="panel"><h2>Join your academic group</h2><p class="muted">Ask your lecturer for the group code.</p>
+            <div class="fields"><label>Group code<input @bind="code" maxlength="30" /></label></div>
+            <button class="button" @onclick="Join">Join group</button>
+        </section>
+    }
+}
+
+@code {
+    private string name = "", program = "", code = "";
+    private string? error;
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (Current is { } p) { name = p.Name; program = p.Program; }
+    }
+    private void Save() => Apply(Campus.UpdateProfile(UserId, name, program));
+    private void Join() => Apply(Campus.JoinGroup(UserId, code));
+    private void Remove() => Apply(Campus.SetAvatar(UserId, null));
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            await using var stream = e.File.OpenReadStream(512 * 1024);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            Apply(Campus.SetAvatar(UserId, memory.ToArray()));
+        }
+        catch (IOException) { error = "Choose a PNG or JPEG smaller than 512 KB."; }
+    }
+    private void Apply(Result<bool> result)
+    {
+        if (result is Fail<bool> fail) error = fail.Error;
+        else Nav.NavigateTo("/profile", forceLoad: true);
+    }
+}

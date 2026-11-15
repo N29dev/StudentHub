@@ -1,40 +1,43 @@
 # StudentHub
 
-A local academic planner built with C# and Blazor for the Introduction to Functional Programming final project.
+An academic management system built with C#, Blazor and SQLite for Introduction to Functional Programming.
 
-## Features
-
-- Dashboard with upcoming deadlines, course progress and today's classes.
-- Create, edit, complete, delete, search and filter assignments.
-- Course management with credit-weighted GPA.
-- Weekly timetable with overlapping lesson validation.
-- Smart task ordering based on deadlines and importance.
-- JSON persistence, responsive layouts and system light/dark theme.
-
-## Run
+## Run locally
 
 Install the .NET 8 SDK (or a compatible newer SDK with the .NET 8 runtime).
 
     git clone https://github.com/N29dev/StudentHub.git
     cd StudentHub
-    dotnet run --project StudentHub --urls http://localhost:5080
+    StudentHub__LecturerCode=local-demo-code dotnet run --project StudentHub --urls http://localhost:5080
 
-Open http://localhost:5080. The first launch shows example academic data. Changes are saved in StudentHub/App_Data/studenthub.json. To reset the demo, stop the application and delete that file (back it up first).
+On Windows PowerShell set `$env:StudentHub__LecturerCode = "local-demo-code"` first, then run the dotnet command. Open http://localhost:5080. Choose your own invitation code; the example is for a local demo, not a production secret.
 
-## Tests
+## Demo flow
 
-    dotnet test StudentHub.Tests
+1. Create a lecturer account (select Lecturer and enter the configured invitation code).
+2. Open Manage groups, create a group such as IT-2507, and note its generated join code.
+3. Add courses, publish assignments, and schedule lessons.
+4. In a private browser window register a student using the group join code (or join later from the profile).
+5. As the student, view tasks, mark completion, view timetable and use the grade predictor.
+6. As the lecturer, refresh the group and use Students & grades to set a grade. The student can see their updated GPA after refreshing or navigating.
+7. Edit a profile and optionally upload a PNG/JPEG avatar.
+
+The database is created automatically in StudentHub/App_Data/campus.db. To reset the demo, stop the server and back up/delete that file and any associated SQLite WAL/SHM files. The earlier JSON file, if present, is not migrated or overwritten.
+
+## Test
+
+    dotnet test StudentHub.Tests/StudentHub.Tests.csproj
 
 ## Structure
 
-- StudentHub.Core: immutable records, Result<T>, pure functions, transformations, rules.
-- StudentHub: Blazor pages, reusable components, responsive CSS and JSON store.
-- StudentHub.Tests: xUnit tests for business rules and persistence.
+- StudentHub.Core: immutable records, Result<T>, pure functions, transformations and academic rules.
+- StudentHub: Blazor pages, reusable UI, account endpoints, authorization, SQLite database and application services.
+- StudentHub.Tests: xUnit unit and integration tests.
 
-The functional core does not access the file system, the clock or UI. Callers pass dates and IDs explicitly. The imperative shell handles input and storage. A fixed example 4.0 scale is used, not an official institutional calculation.
+The functional core does not access storage, the clock or the UI. The service maps database rows to immutable values, applies validation and saves only successful changes.
 
-See [development and defense notes](docs/defense.md) and [manual QA checklist](docs/qa.md).
+See [defense notes](docs/defense.md) and [manual QA](docs/qa.md).
 
 ## Limitations
 
-This is a local, single-profile application without accounts. A single server instance owns the JSON file. Multiple tabs read the shared snapshot but do not automatically receive live updates. Do not expose the development server publicly. JSON is convenient for the exam demo; a transactional database and authentication would be necessary for a multi-user deployment.
+This is an educational local demo with one lecturer owner per group and one group per student. It does not implement institution-wide enrollment, email verification, account recovery, multi-lecturer groups or automatic live updates. No real student data is required. Use HTTPS, stronger operational controls and production-grade identity management before deploying online. The grading scale is illustrative. Assignment completion is a self-reported progress marker, not a file submission.

@@ -1,0 +1,11 @@
+<span class="avatar @(Large ? "avatar-large" : "")" aria-label="Profile picture">
+    @if (!string.IsNullOrEmpty(Profile?.Avatar))
+    {
+        <img src="@Profile.Avatar" alt="" />
+    }
+    else { <span>@(Profile?.Initials ?? "?")</span> }
+</span>
+@code {
+    [Parameter] public ProfileInfo? Profile { get; set; }
+    [Parameter] public bool Large { get; set; }
+}

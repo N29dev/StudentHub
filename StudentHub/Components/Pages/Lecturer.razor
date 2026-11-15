@@ -1,0 +1,253 @@
+@page "/lecturer"
+@attribute [Authorize(Roles = Roles.Lecturer)]
+@inherits CampusPage
+<PageTitle>Manage groups · StudentHub</PageTitle>
+
+<header class="page-head"><div><h1>Manage groups</h1><p>Courses, assignments, grades and class schedules.</p></div>
+    <button class="secondary" @onclick="Reload">Refresh</button></header>
+<Notice Message="@error" />
+@if (message is not null) { <p class="success-message" role="status">@message</p> }
+<section class="panel">
+    <h2>Academic groups</h2>
+    <div class="fields">
+        <label>My groups<select @bind="groupId" @bind:after="SelectGroup">
+            <option value="@Guid.Empty">Select a group</option>
+            @foreach (var g in groups) { <option value="@g.Id">@g.Name</option> }
+        </select></label>
+        <label>New group<input @bind="groupName" maxlength="40" placeholder="e.g. IT-2507" /></label>
+    </div>
+    <button class="button" @onclick="CreateGroup">Create group</button>
+    @if (groups.FirstOrDefault(g => g.Id == groupId) is { } selected)
+    {
+        <div class="join-code"><span>Group join code</span><code>@selected.JoinCode</code>
+            <small>Share this code only with your students.</small></div>
+    }
+</section>
+@if (groupId != Guid.Empty)
+{
+    <div class="tabs" aria-label="Group management">
+        @foreach (var t in new[] { "Courses", "Assignments", "Timetable", "Students & grades" })
+        {
+            <button class="@(tab == t ? "selected" : "")" @onclick="() => SelectTab(t)">@t</button>
+        }
+    </div>
+    @if (tab == "Courses")
+    {
+        <section class="panel">
+            <h2>@(courseEditId == Guid.Empty ? "Add course" : "Edit course")</h2>
+            <div class="fields">
+                <label>Course name<input @bind="courseName" maxlength="100" /></label>
+                <label>Credits<input type="number" min="1" max="30" @bind="credits" /></label>
+            </div>
+            <div class="actions"><button class="button" @onclick="SaveCourse">Save course</button>
+                @if (courseEditId != Guid.Empty) { <button class="secondary" @onclick="ClearCourse">Cancel</button> }
+            </div>
+        </section>
+        <section class="panel"><h2>Group courses</h2>
+            <div class="table-wrap"><table><thead><tr><th>Course</th><th>Credits</th><th>Actions</th></tr></thead><tbody>
+                @foreach (var c in view.Data.Courses.OrderBy(c => c.Name))
+                {
+                    <tr @key="c.Id"><td>@c.Name</td><td>@c.Credits</td><td><div class="actions">
+                        <button class="quiet" @onclick="() => EditCourse(c)">Edit</button>
+                        <button class="quiet danger" @onclick='() => AskDelete("course", c.Id)'>Delete</button>
+                    </div></td></tr>
+                }
+            </tbody></table></div>
+            @if (view.Data.Courses.IsEmpty) { <p class="empty">Add the first course.</p> }
+        </section>
+    }
+    else if (tab == "Assignments")
+    {
+        <section class="panel"><h2>@(taskEditId == Guid.Empty ? "Publish assignment" : "Edit assignment")</h2>
+            <div class="fields"><label>Course<select @bind="taskCourse">
+                <option value="@Guid.Empty">Select course</option>
+                @foreach (var c in view.Data.Courses) { <option value="@c.Id">@c.Name</option> }
+            </select></label><label>Title<input @bind="taskTitle" maxlength="100" /></label>
+            <label>Deadline<input type="date" @bind="due" /></label>
+            <label>Importance<select @bind="importance"><option value="1">Low</option><option value="2">Normal</option><option value="3">High</option></select></label></div>
+            <div class="actions"><button class="button" @onclick="SaveTask">@(taskEditId == Guid.Empty ? "Publish" : "Save changes")</button>
+                @if (taskEditId != Guid.Empty) { <button class="secondary" @onclick="ClearTask">Cancel</button> }
+            </div>
+        </section>
+        <section class="panel"><h2>Published assignments</h2>
+            <div class="table-wrap"><table><thead><tr><th>Title</th><th>Course</th><th>Deadline</th><th>Actions</th></tr></thead><tbody>
+                @foreach (var a in view.Data.Assignments.OrderBy(a => a.Due))
+                {
+                    <tr @key="a.Id"><td>@a.Title</td><td>@view.Data.CourseName(a.CourseId)</td><td>@a.Due.ToString("dd MMM yyyy")</td>
+                        <td><div class="actions"><button class="quiet" @onclick="() => EditTask(a)">Edit</button>
+                            <button class="quiet danger" @onclick='() => AskDelete("assignment", a.Id)'>Delete</button></div></td></tr>
+                }
+            </tbody></table></div>
+            @if (view.Data.Assignments.IsEmpty) { <p class="empty">No assignments published.</p> }
+        </section>
+    }
+    else if (tab == "Timetable")
+    {
+        <section class="panel"><h2>@(lessonEditId == Guid.Empty ? "Schedule lesson" : "Edit lesson")</h2>
+            <div class="fields"><label>Course<select @bind="lessonCourse"><option value="@Guid.Empty">Select course</option>
+                @foreach (var c in view.Data.Courses) { <option value="@c.Id">@c.Name</option> }
+            </select></label>
+            <label>Day<select @bind="day">@foreach (var d in days) { <option value="@d">@d</option> }</select></label>
+            <label>Start<input type="time" value="@start" @onchange="e => start = e.Value?.ToString() ?? string.Empty" /></label>
+            <label>End<input type="time" value="@end" @onchange="e => end = e.Value?.ToString() ?? string.Empty" /></label>
+            <label>Room<input @bind="room" maxlength="60" /></label></div>
+            <div class="actions"><button class="button" @onclick="SaveLesson">Save lesson</button>
+                @if (lessonEditId != Guid.Empty) { <button class="secondary" @onclick="ClearLesson">Cancel</button> }
+            </div>
+        </section>
+        <div class="week">
+            @foreach (var d in days)
+            {
+                var lessons = view.Data.Lessons.Where(l => l.Day == d).OrderBy(l => l.Start).ToArray();
+                <section class="panel day"><h2>@d</h2>
+                    @foreach (var l in lessons)
+                    {
+                        <div class="class-item" @key="l.Id"><strong>@view.Data.CourseName(l.CourseId)</strong>
+                            <small>@l.Start.ToString("HH:mm") – @l.End.ToString("HH:mm") · @l.Room</small>
+                            <div class="actions"><button class="quiet" @onclick="() => EditLesson(l)">Edit</button>
+                                <button class="quiet danger" @onclick='() => AskDelete("lesson", l.Id)'>Delete</button></div>
+                        </div>
+                    }
+                    @if (lessons.Length == 0) { <p class="empty">No classes</p> }
+                </section>
+            }
+        </div>
+    }
+    else
+    {
+        <section class="panel"><h2>Student roster</h2>
+            <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Completed tasks</th><th>GPA</th></tr></thead><tbody>
+                @foreach (var s in view.Students)
+                {
+                    <tr @key="s.Id"><td>@s.Name</td><td>@s.Email</td><td>@s.Completed / @s.Total</td><td>@(s.Gpa?.ToString("0.00") ?? "—")</td></tr>
+                }
+            </tbody></table></div>
+            @if (view.Students.Length == 0) { <p class="empty">Share your join code with students.</p> }
+        </section>
+        <section class="panel"><h2>Course grade</h2><p class="muted">Select a student and course. Leave the grade blank to remove it.</p>
+            <div class="fields"><label>Student<select @bind="markStudent" @bind:after="LoadGrade"><option value="@Guid.Empty">Select student</option>
+                @foreach (var s in view.Students) { <option value="@s.Id">@s.Name</option> }
+            </select></label><label>Course<select @bind="markCourse" @bind:after="LoadGrade"><option value="@Guid.Empty">Select course</option>
+                @foreach (var c in view.Data.Courses) { <option value="@c.Id">@c.Name</option> }
+            </select></label><label>Grade (%)<input type="number" min="0" max="100" step="0.1" @bind="grade" /></label></div>
+            <button class="button" @onclick="SaveGrade">Save grade</button>
+        </section>
+        <section class="panel"><h2>Grade book</h2><div class="table-wrap"><table><thead><tr><th>Student</th>
+            @foreach (var c in view.Data.Courses) { <th>@c.Name</th> }
+        </tr></thead><tbody>
+            @foreach (var s in view.Students)
+            {
+                <tr><td>@s.Name</td>
+                    @foreach (var c in view.Data.Courses)
+                    {
+                        <td>@(view.Grades.FirstOrDefault(g => g.StudentId == s.Id && g.CourseId == c.Id)?.Grade.ToString("0.##") ?? "—")</td>
+                    }
+                </tr>
+            }
+        </tbody></table></div></section>
+    }
+    @if (deleteId != Guid.Empty)
+    {
+        <section class="panel confirm" role="alert">Delete this @deleteType?
+            <button class="secondary danger" @onclick="ConfirmDelete">Delete</button>
+            <button class="secondary" @onclick="CancelDelete">Cancel</button>
+        </section>
+    }
+}
+
+@code {
+    private GroupInfo[] groups = [];
+    private LecturerView view = LecturerView.Empty;
+    private Guid groupId;
+    private string groupName = "", tab = "Courses";
+    private string? error, message;
+    private Guid courseEditId;
+    private string courseName = "";
+    private int credits = 5;
+    private Guid taskEditId, taskCourse;
+    private string taskTitle = "";
+    private DateTime due = DateTime.Today;
+    private int importance = 2;
+    private Guid lessonEditId, lessonCourse;
+    private DayOfWeek day = DayOfWeek.Monday;
+    private string start = "09:00", end = "10:00", room = "";
+    private Guid markStudent, markCourse, deleteId;
+    private decimal? grade;
+    private string deleteType = "";
+    private static readonly DayOfWeek[] days = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+        DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        Reload();
+        groupId = groups.FirstOrDefault()?.Id ?? Guid.Empty;
+        SelectGroup();
+    }
+
+    private void Reload()
+    {
+        groups = Campus.MyGroups(UserId);
+        if (!groups.Any(g => g.Id == groupId)) groupId = groups.FirstOrDefault()?.Id ?? Guid.Empty;
+        view = Campus.ViewGroup(UserId, groupId);
+    }
+
+    private void SelectGroup()
+    {
+        Reload(); ClearCourse(); ClearTask(); ClearLesson(); CancelDelete();
+        markStudent = Guid.Empty; markCourse = Guid.Empty; grade = null; error = message = null;
+    }
+
+    private void SelectTab(string value) { tab = value; CancelDelete(); error = message = null; }
+    private void CancelDelete() { deleteId = Guid.Empty; deleteType = ""; }
+    private void AskDelete(string type, Guid id) { deleteType = type; deleteId = id; }
+    private bool Apply(Result<bool> result, string success)
+    {
+        if (result is Fail<bool> f) { error = f.Error; message = null; return false; }
+        error = null; message = success; Reload(); return true;
+    }
+
+    private void CreateGroup()
+    {
+        var result = Campus.CreateGroup(UserId, groupName);
+        if (result is Fail<Guid> f) { error = f.Error; message = null; return; }
+        groupId = ((Ok<Guid>)result).Value; groupName = ""; SelectGroup(); message = "Group created.";
+    }
+    private void ClearCourse() { courseEditId = Guid.Empty; courseName = ""; credits = 5; }
+    private void EditCourse(Course c) { courseEditId = c.Id; courseName = c.Name; credits = c.Credits; }
+    private void SaveCourse()
+    {
+        var c = new Course(courseEditId == Guid.Empty ? Guid.NewGuid() : courseEditId, courseName, credits, null);
+        if (Apply(Campus.SaveCourse(UserId, groupId, c), "Course saved.")) ClearCourse();
+    }
+    private void ClearTask() { taskEditId = Guid.Empty; taskCourse = view.Data.Courses.FirstOrDefault()?.Id ?? Guid.Empty; taskTitle = ""; due = DateTime.Today; importance = 2; }
+    private void EditTask(Assignment a) { taskEditId = a.Id; taskCourse = a.CourseId; taskTitle = a.Title; due = a.Due.ToDateTime(TimeOnly.MinValue); importance = a.Importance; }
+    private void SaveTask()
+    {
+        var a = new Assignment(taskEditId == Guid.Empty ? Guid.NewGuid() : taskEditId, taskCourse,
+            taskTitle, DateOnly.FromDateTime(due), importance);
+        if (Apply(Campus.SaveAssignment(UserId, groupId, a), "Assignment saved.")) ClearTask();
+    }
+    private void ClearLesson() { lessonEditId = Guid.Empty; lessonCourse = view.Data.Courses.FirstOrDefault()?.Id ?? Guid.Empty; day = DayOfWeek.Monday; start = "09:00"; end = "10:00"; room = ""; }
+    private void EditLesson(Lesson l) { lessonEditId = l.Id; lessonCourse = l.CourseId; day = l.Day; start = l.Start.ToString("HH:mm"); end = l.End.ToString("HH:mm"); room = l.Room; }
+    private void SaveLesson()
+    {
+        if (!TimeOnly.TryParse(start, out var s) || !TimeOnly.TryParse(end, out var e))
+        { error = "Enter valid start and end times."; return; }
+        var l = new Lesson(lessonEditId == Guid.Empty ? Guid.NewGuid() : lessonEditId, lessonCourse, day, s, e, room);
+        if (Apply(Campus.SaveLesson(UserId, groupId, l), "Lesson saved.")) ClearLesson();
+    }
+    private void LoadGrade() => grade = view.Grades.FirstOrDefault(g => g.StudentId == markStudent && g.CourseId == markCourse)?.Grade;
+    private void SaveGrade() => Apply(Campus.SetGrade(UserId, groupId, markStudent, markCourse, grade), "Grade saved.");
+    private void ConfirmDelete()
+    {
+        var result = deleteType switch
+        {
+            "course" => Campus.DeleteCourse(UserId, groupId, deleteId),
+            "assignment" => Campus.DeleteAssignment(UserId, groupId, deleteId),
+            "lesson" => Campus.DeleteLesson(UserId, groupId, deleteId),
+            _ => new Fail<bool>("Invalid selection.")
+        };
+        if (Apply(result, "Deleted.")) { CancelDelete(); ClearCourse(); ClearTask(); ClearLesson(); }
+    }
+}

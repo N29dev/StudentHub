@@ -1,0 +1,21 @@
+@page "/predict"
+@attribute [Authorize(Roles = Roles.Student)]
+<PageTitle>Grade prediction · StudentHub</PageTitle>
+<header class="page-head"><div><h1>Grade prediction</h1><p>Estimate the final exam score needed to achieve your target grade.</p></div></header>
+<section class="panel"><h2>Final exam calculator</h2>
+    <div class="fields">
+        <label>Current coursework grade (%)<input type="number" min="0" max="100" step="0.1" @bind="current" /></label>
+        <label>Final exam weight (%)<input type="number" min="1" max="100" step="1" @bind="weight" /></label>
+        <label>Target total grade (%)<input type="number" min="0" max="100" step="0.1" @bind="target" /></label>
+    </div>
+    @if (GradePrediction.RequiredFinal(current, weight, target) is Ok<Prediction> ok)
+    {
+        <div class="prediction-result"><span>Required final exam score</span><strong>@ok.Value.Required.ToString("0.##")%</strong>
+            <p>@(ok.Value.Possible ? "Your target is achievable." : "Your target is not achievable with the selected weights.")</p></div>
+    }
+    else if (GradePrediction.RequiredFinal(current, weight, target) is Fail<Prediction> fail) { <Notice Message="@fail.Error" /> }
+    <p class="muted">The result assumes the current grade represents all coursework outside the final exam. Adjust the weight to match your actual course rules.</p>
+</section>
+@code {
+    private decimal current = 85, weight = 40, target = 90;
+}

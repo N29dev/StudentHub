@@ -1,12 +1,11 @@
 @page "/courses"
-@inject HubStore Store
+@attribute [Authorize(Roles = Roles.Student)]
+@inherits CampusPage
 <PageTitle>Courses &amp; GPA · StudentHub</PageTitle>
 
-<header class="page-head"><div><h1>Courses &amp; GPA</h1><p>Manage courses and calculate your credit-weighted GPA.</p></div>
-    <button class="button" @onclick="New">New course</button>
-</header>
+<header class="page-head"><div><h1>Courses &amp; GPA</h1><p>View your lecturer-assigned grades and academic record.</p></div><a class="button" href="/predict">Grade prediction</a></header>
 @{
-    var data = Store.Data;
+    var data = Campus.StudentData(UserId);
     var graded = data.Courses.Where(c => c.Grade.HasValue).ToArray();
 }
 <div class="stats three">
@@ -14,69 +13,21 @@
     <Stat Label="Graded credits" Value="@graded.Sum(c => c.Credits).ToString()" Detail="included in GPA" />
     <Stat Label="Total credits" Value="@data.Courses.Sum(c => c.Credits).ToString()" Detail="@($"{data.Courses.Length} courses")" />
 </div>
-<Notice Message="@error" />
-@if (editing)
-{
-    <section class="panel editor"><h2>@(id == Guid.Empty ? "New course" : "Edit course")</h2>
-        <div class="fields"><label>Course name<input @bind="name" maxlength="100" /></label>
-            <label>Credits<input type="number" min="1" max="30" @bind="credits" /></label>
-            <label>Grade (%)<input type="number" min="0" max="100" step="0.1" @bind="grade" placeholder="Not graded" /></label></div>
-        <div class="actions"><button class="button" @onclick="Save">Save</button>
-            <button class="secondary" @onclick="Cancel">Cancel</button></div>
-    </section>
-}
-<section class="panel">
-    <div class="section-head"><h2>My courses</h2><small>Ungraded courses are excluded from GPA.</small></div>
-    <div class="table-wrap"><table><thead><tr><th>Course</th><th>Credits</th><th>Grade</th><th>Points</th><th>Actions</th></tr></thead><tbody>
+<section class="panel"><div class="section-head"><h2>My courses</h2><small>Grades are managed by lecturers.</small></div>
+    <div class="table-wrap"><table><thead><tr><th>Course</th><th>Credits</th><th>Grade (%)</th><th>Points</th></tr></thead><tbody>
         @foreach (var c in data.Courses.OrderBy(c => c.Name))
         {
-            <tr @key="c.Id"><td><strong>@c.Name</strong></td><td>@c.Credits</td>
-                <td>@(c.Grade?.ToString("0.##") ?? "—")</td>
-                <td>@(c.Grade is decimal g ? Academics.GradePoints(g).ToString("0.00") : "—")</td>
-                <td><div class="actions"><button class="quiet" @onclick="() => Edit(c)">Edit</button>
-                    <button class="quiet danger" @onclick="() => deleteId = c.Id">Delete</button></div></td></tr>
+            <tr @key="c.Id"><td><strong>@c.Name</strong></td><td>@c.Credits</td><td>@(c.Grade?.ToString("0.##") ?? "—")</td>
+                <td>@(c.Grade is decimal g ? Academics.GradePoints(g).ToString("0.00") : "—")</td></tr>
         }
     </tbody></table></div>
     @if (data.Courses.IsEmpty) { <p class="empty">No courses yet.</p> }
-    @if (deleteId != Guid.Empty)
-    {
-        <div class="confirm" role="alert">Delete this course?
-            <button class="secondary danger" @onclick="Delete">Delete</button>
-            <button class="secondary" @onclick="() => deleteId = Guid.Empty">Cancel</button>
-        </div>
-    }
 </section>
 <section class="panel"><h2>How GPA is calculated</h2>
-    <p class="muted">GPA = sum of (grade points × credits) divided by graded credits. This project uses an example 4.0 grading scale; check your university's official rules.</p>
-    <div class="table-wrap"><table class="scale"><thead><tr><th>Percentage</th>@foreach (var t in thresholds) { <th>@t+</th> }<th>0–49</th></tr></thead>
+    <p class="muted">Sum of (grade points × credits) divided by graded credits. Ungraded courses are excluded. This is an example 4.0 grading scale.</p>
+    <div class="table-wrap"><table class="scale"><thead><tr><th>Percentage</th>@foreach (var t in thresholds) { <th>@(t)+</th> }<th>0–49</th></tr></thead>
         <tbody><tr><th>Points</th>@foreach (var t in thresholds) { <td>@Academics.GradePoints(t).ToString("0.00")</td> }<td>0.00</td></tr></tbody></table></div>
 </section>
-
 @code {
     private static readonly int[] thresholds = [95, 90, 85, 80, 75, 70, 65, 60, 55, 50];
-    private bool editing;
-    private Guid id, deleteId;
-    private string name = "";
-    private int credits = 5;
-    private decimal? grade;
-    private string? error;
-
-    private void New() { id = Guid.Empty; name = ""; credits = 5; grade = null; editing = true; error = null; }
-    private void Edit(Course c) { id = c.Id; name = c.Name; credits = c.Credits; grade = c.Grade; editing = true; error = null; }
-    private void Cancel() { editing = false; error = null; }
-    private void Save()
-    {
-        var c = new Course(id == Guid.Empty ? Guid.NewGuid() : id, name, credits, grade);
-        if (Apply(d => Changes.SaveCourse(d, c))) editing = false;
-    }
-    private void Delete()
-    {
-        if (Apply(d => Changes.DeleteCourse(d, deleteId)))
-        { if (id == deleteId) editing = false; deleteId = Guid.Empty; }
-    }
-    private bool Apply(Func<HubData, Result<HubData>> fn)
-    {
-        error = Store.Change(fn) is Fail<HubData> f ? f.Error : null;
-        return error is null;
-    }
 }

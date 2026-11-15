@@ -1,53 +1,65 @@
 # Project and defense notes
 
 ## Topic, aim and objectives
-StudentHub — Functional Academic Management System. Aim: help students organize deadlines, courses and weekly lessons. Objectives: centralize data, calculate GPA, prioritize assignments, prevent scheduling conflicts and demonstrate functional programming.
+StudentHub — Functional Academic Management System. Aim: help students and lecturers organize courses, assignments, grades and weekly lessons. Objectives: centralized group data, GPA calculation, task prioritization, schedule conflict detection, role-based access and functional programming.
 
 ## Technology comparison
-- Console C#: simple and portable, but limited graphical usability.
-- WPF: desktop interface, Windows-oriented.
-- Blazor Interactive Server: C# components and web-based UI, responsive across browsers; requires a running server.
-- Blazor WebAssembly: runs .NET in the browser; more start-up overhead and requires a different persistence approach.
-- JSON: no database setup, small local workload; no multi-user transactions or querying indexes. SQLite/PostgreSQL would be a future improvement.
+- Console C#: portable but limited graphical usability.
+- WPF: desktop UI, Windows-oriented.
+- Blazor Interactive Server: C# components and responsive browser interface; requires a running server.
+- Blazor WebAssembly: browser execution; larger initial download and different persistence model.
+- JSON: convenient for a single-user prototype, but difficult to enforce relationships.
+- SQLite and EF Core: local relational database, no separate database server, constraints and transactions. PostgreSQL is a future option for a larger deployment.
 
 ## Architecture
-Functional Core / Imperative Shell:
 ```mermaid
 flowchart TD
-    UI[Blazor pages and shared components] --> Store[HubStore state container]
-    UI --> Core[Pure academic functions]
-    Store --> Core[Pure academic functions]
-    Store --> JSON[Local JSON file]
-    Tests[xUnit tests] --> Core
-    Tests --> Store
+    Browser[Student / Lecturer browser] --> Auth[Cookie authentication]
+    Browser --> UI[Blazor pages and shared components]
+    Auth --> Service[CampusService]
+    UI --> Service
+    Service --> Core[Pure academic functions]
+    Service --> EF[Entity Framework Core]
+    EF --> SQLite[(SQLite)]
+    Tests[xUnit] --> Core
+    Tests --> Service
 ```
-The core uses records and ImmutableArray. Changes returns a new HubData value instead of modifying existing records. The store locks updates and writes a temporary file before replacing the saved file. Failed writes leave the in-memory snapshot unchanged. UI passes delegates and receives Result values.
+Functional Core / Imperative Shell. Core records and ImmutableArray represent snapshots. Changes validates and returns new data. CampusService authorizes operations, maps rows to immutable snapshots and commits validated database changes. The DB enforces unique keys, references and composite keys for grades and completion. Passwords are hashed, and cookie authentication identifies the current user; the service checks ownership before writes.
+
+## Data model
+```mermaid
+erDiagram
+    ACCOUNT ||--o{ ACADEMIC_GROUP : owns
+    ACADEMIC_GROUP o|--o{ ACCOUNT : enrolls
+    ACADEMIC_GROUP ||--o{ COURSE_OFFERING : contains
+    COURSE_OFFERING ||--o{ PUBLISHED_ASSIGNMENT : publishes
+    COURSE_OFFERING ||--o{ SCHEDULED_LESSON : schedules
+    COURSE_OFFERING ||--o{ COURSE_MARK : has
+    ACCOUNT ||--o{ COURSE_MARK : receives
+    ACCOUNT ||--o{ COMPLETION : records
+    PUBLISHED_ASSIGNMENT ||--o{ COMPLETION : tracks
+```
 
 ## Functional programming examples
-- Pure functions: GradePoints, Gpa, Priority, Overlaps. Same inputs produce same outputs.
+- Pure functions: GradePoints, Gpa, Priority, Overlaps, RequiredFinal.
 - Immutability: Course, Assignment, Lesson and HubData records; with expressions.
-- Higher-order functions: Filter(predicate, search), HubStore.Change(delegate).
-- Currying: Priority takes date and task; Curry fixes today's date and produces a ranking function.
-- Composition: Filter composes title extraction and uppercase normalization.
-- Map versus Bind: Map transforms success; Bind chains operations that return another Result. Both propagate failure without calling the next function.
-- LINQ: Where, Select, Sum, OrderBy, Grouping-like per-course projection.
+- Higher-order functions: Filter(predicate, search), CampusService.Write(delegate).
+- Currying: Priority takes date and assignment; Curry fixes today to generate a ranking function.
+- Composition: Filter composes title extraction and normalization.
+- Map / Bind: Map transforms success; Bind chains Result-returning functions; both propagate errors.
+- LINQ: Where, Select, Sum, GroupBy, OrderBy.
 - Pattern matching: grade thresholds, AssignmentStatus and Ok/Fail.
+- Side effects: database transactions and authentication are outside the functional core.
 
 ## Suggested presentation outline
-1. Team members (add both real names), topic, aim and objectives.
+1. Team members (both real names), topic, aim and objectives.
 2. Problem and practical significance.
 3. Technology comparison and reasons for choices.
-4. Architecture and functional programming concepts.
-5. Screens or mockups showing the main pages.
-6. Live demo: course creation, invalid grade, assignment sorting, completion, timetable conflict, GPA.
-7. Test cases, known limitations, future work.
+4. Architecture and database diagram.
+5. Development methodology and app mockups/screenshots.
+6. Functional programming examples.
+7. Live demo: lecturer creates group and task; student joins and completes task; lecturer enters grade; student views GPA.
+8. Validation and test results (only claim tests actually run).
+9. Known limitations and future work.
 
-## Defense questions
-- Why use immutable records? Safer state updates and predictable tests.
-- Why pass today instead of reading it inside Priority? Keeps logic deterministic.
-- How is GPA weighted? Sum of grade points times credits / graded credits.
-- Why use Result instead of exceptions for validation? Expected failure becomes explicit data.
-- Why is persistence imperative? It changes disk state and can fail for environmental reasons.
-- Why does a lesson ending at 10:00 not conflict with one starting at 10:00? Ranges use strict overlap comparisons.
-
-Both students should make actual code changes, review each other's work and understand the entire application. Document the work each person actually completed; do not claim contributions that were not made.
+Both students must contribute code, review the implementation and be ready to explain any part of the project. Do not claim contributions or test results that did not happen.
