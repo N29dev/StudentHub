@@ -127,12 +127,12 @@ public static class DemoData
             };
             foreach (var slot in week)
             {
-                var start = new TimeOnly(slot.Hour, slot.Minute);
+                var start = new TimeOnly(slot.Hour, slot.Minute).AddHours(g == 1 ? 4 : 0);
                 data.Lessons.Add(new ScheduledLesson
                 {
                     Id = Guid.NewGuid(), CourseId = offerings[slot.Course].Id,
                     Day = slot.Day, Start = start, End = start.AddMinutes(80),
-                    Room = slot.Room
+                    Room = g == 2 ? $"D{slot.Room[1..]}" : slot.Room
                 });
             }
         }
