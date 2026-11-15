@@ -2,8 +2,6 @@ using System.Collections.Immutable;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using StudentHub.Core;
 
 namespace StudentHub.Services;
@@ -22,8 +20,8 @@ public record LecturerView(HubData Data, StudentSummary[] Students, GradeEntry[]
     public static LecturerView Empty => new(HubData.Empty, [], []);
 }
 
-// Database side effects live here; the existing core performs academic validation and calculations.
-public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfiguration config)
+// Storage side effects live here; the existing core performs academic validation and calculations.
+public sealed class CampusService(CampusStore store, IConfiguration config)
 {
     private readonly object gate = new();
     private readonly PasswordHasher<CampusAccount> hasher = new();
@@ -32,32 +30,32 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
     private static Result<bool> Yes() => new Ok<bool>(true);
     private static bool ValidText(string s, int max) => !string.IsNullOrWhiteSpace(s) && s.Trim().Length <= max;
 
-    private Result<T> Write<T>(Func<CampusDb, Result<T>> operation)
+    private Result<T> Write<T>(Func<CampusData, Result<T>> operation)
     {
         lock (gate)
         {
-            using var db = factory.CreateDbContext();
             try
             {
+                var db = store.Copy();
                 var result = operation(db);
-                if (result is Ok<T>) db.SaveChanges();
+                if (result is Ok<T>) store.Save(db);
                 return result;
             }
-            catch (Exception e) when (e is DbUpdateException or SqliteException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
             {
-                return Fail<T>("Unable to save changes. Check the database and try again.");
+                return Fail<T>("Unable to save changes. Check storage permissions and try again.");
             }
         }
     }
 
-    private static ProfileInfo Profile(CampusDb db, CampusAccount a)
+    private static ProfileInfo Profile(CampusData db, CampusAccount a)
         => new(a.Id, a.Email, a.Name, a.Role, a.Program, a.Avatar, a.GroupId,
-            a.GroupId is Guid id ? db.Groups.Find(id)?.Name : null);
+            a.GroupId is Guid id ? db.Groups.FirstOrDefault(item => item.Id == id)?.Name : null);
 
     public ProfileInfo? GetProfile(Guid id)
     {
-        using var db = factory.CreateDbContext();
-        return db.Accounts.Find(id) is { } a ? Profile(db, a) : null;
+        var db = store.Snapshot;
+        return db.Accounts.FirstOrDefault(item => item.Id == id) is { } a ? Profile(db, a) : null;
     }
 
     public Result<ProfileInfo> Register(string name, string email, string password, string role,
@@ -93,7 +91,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
     public Result<ProfileInfo> Login(string email, string password)
     {
         if (password.Length > 128 || email.Length > 200) return Fail<ProfileInfo>("Incorrect email or password.");
-        using var db = factory.CreateDbContext();
+        var db = store.Snapshot;
         var a = db.Accounts.FirstOrDefault(x => x.Email == email.Trim().ToLowerInvariant());
         if (a is null || hasher.VerifyHashedPassword(a, a.PasswordHash, password) == PasswordVerificationResult.Failed)
             return Fail<ProfileInfo>("Incorrect email or password.");
@@ -103,7 +101,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
     public Result<bool> UpdateProfile(Guid user, string name, string program)
         => Write<bool>(db =>
         {
-            var a = db.Accounts.Find(user);
+            var a = db.Accounts.FirstOrDefault(item => item.Id == user);
             if (a is null) return Fail<bool>("Account not found.");
             if (!ValidText(name, 100) || program.Trim().Length > 100)
                 return Fail<bool>("Check your name and program length.");
@@ -114,7 +112,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
     public Result<bool> SetAvatar(Guid user, byte[]? bytes)
         => Write<bool>(db =>
         {
-            var a = db.Accounts.Find(user);
+            var a = db.Accounts.FirstOrDefault(item => item.Id == user);
             if (a is null) return Fail<bool>("Account not found.");
             if (bytes is null) { a.Avatar = null; return Yes(); }
             if (bytes.Length > 512 * 1024) return Fail<bool>("Image must be smaller than 512 KB.");
@@ -128,7 +126,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
     public Result<bool> JoinGroup(Guid user, string code)
         => Write<bool>(db =>
         {
-            var a = db.Accounts.Find(user);
+            var a = db.Accounts.FirstOrDefault(item => item.Id == user);
             if (a?.Role != Roles.Student) return Fail<bool>("Only students can join groups.");
             if (a.GroupId.HasValue) return Fail<bool>("You already belong to a group.");
             var group = db.Groups.FirstOrDefault(g => g.JoinCode == code.Trim().ToUpperInvariant());
@@ -139,30 +137,32 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
 
     public GroupInfo[] MyGroups(Guid user)
     {
-        using var db = factory.CreateDbContext();
-        if (db.Accounts.Find(user)?.Role != Roles.Lecturer) return [];
+        var db = store.Snapshot;
+        if (db.Accounts.FirstOrDefault(item => item.Id == user)?.Role != Roles.Lecturer) return [];
         return db.Groups.Where(g => g.OwnerId == user).OrderBy(g => g.Name)
             .Select(g => new GroupInfo(g.Id, g.Name, g.JoinCode)).ToArray();
     }
 
-    private static bool Owns(CampusDb db, Guid user, Guid group)
-        => db.Accounts.Find(user)?.Role == Roles.Lecturer &&
+    private static bool Owns(CampusData db, Guid user, Guid group)
+        => db.Accounts.FirstOrDefault(item => item.Id == user)?.Role == Roles.Lecturer &&
             db.Groups.Any(g => g.Id == group && g.OwnerId == user);
 
     public Result<Guid> CreateGroup(Guid user, string name)
         => Write<Guid>(db =>
         {
-            if (db.Accounts.Find(user)?.Role != Roles.Lecturer) return Fail<Guid>("Lecturer access required.");
+            if (db.Accounts.FirstOrDefault(item => item.Id == user)?.Role != Roles.Lecturer) return Fail<Guid>("Lecturer access required.");
             if (!ValidText(name, 40)) return Fail<Guid>("Enter a group name.");
             name = name.Trim().ToUpperInvariant();
             if (db.Groups.Any(g => g.OwnerId == user && g.Name == name)) return Fail<Guid>("Group already exists.");
-            var group = new AcademicGroup { Id = Guid.NewGuid(), OwnerId = user, Name = name,
-                JoinCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(5)) };
+            string code;
+            do { code = Convert.ToHexString(RandomNumberGenerator.GetBytes(5)); }
+            while (db.Groups.Any(g => g.JoinCode == code));
+            var group = new AcademicGroup { Id = Guid.NewGuid(), OwnerId = user, Name = name, JoinCode = code };
             db.Groups.Add(group);
             return new Ok<Guid>(group.Id);
         });
 
-    private static HubData GroupData(CampusDb db, Guid group, Guid? student = null)
+    private static HubData GroupData(CampusData db, Guid group, Guid? student = null)
     {
         var courses = db.Courses.Where(c => c.GroupId == group).ToArray();
         var ids = courses.Select(c => c.Id).ToArray();
@@ -183,14 +183,14 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
 
     public HubData StudentData(Guid user)
     {
-        using var db = factory.CreateDbContext();
-        var a = db.Accounts.Find(user);
+        var db = store.Snapshot;
+        var a = db.Accounts.FirstOrDefault(item => item.Id == user);
         return a?.Role == Roles.Student && a.GroupId is Guid group ? GroupData(db, group, user) : HubData.Empty;
     }
 
     public LecturerView ViewGroup(Guid user, Guid group)
     {
-        using var db = factory.CreateDbContext();
+        var db = store.Snapshot;
         if (!Owns(db, user, group)) return LecturerView.Empty;
         var data = GroupData(db, group);
         var students = db.Accounts.Where(a => a.GroupId == group && a.Role == Roles.Student)
@@ -217,7 +217,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var existing = db.Courses.Find(course.Id);
+            var existing = db.Courses.FirstOrDefault(item => item.Id == course.Id);
             if (existing is not null && existing.GroupId != group) return Fail<bool>("Access denied.");
             var result = Changes.SaveCourse(GroupData(db, group), course with { Grade = null });
             if (result is Fail<HubData> fail) return Fail<bool>(fail.Error);
@@ -231,7 +231,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var c = db.Courses.Find(id);
+            var c = db.Courses.FirstOrDefault(item => item.Id == id);
             if (c?.GroupId != group) return Fail<bool>("Course not found.");
             var result = Changes.DeleteCourse(GroupData(db, group), id);
             if (result is Fail<HubData> fail) return Fail<bool>(fail.Error);
@@ -243,7 +243,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var existing = db.Assignments.Find(a.Id);
+            var existing = db.Assignments.FirstOrDefault(item => item.Id == a.Id);
             if (existing is not null && !db.Courses.Any(c => c.Id == existing.CourseId && c.GroupId == group))
                 return Fail<bool>("Access denied.");
             var result = Changes.SaveAssignment(GroupData(db, group), a);
@@ -258,21 +258,23 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var a = db.Assignments.Find(id);
+            var a = db.Assignments.FirstOrDefault(item => item.Id == id);
             if (a is null || !db.Courses.Any(c => c.Id == a.CourseId && c.GroupId == group))
                 return Fail<bool>("Assignment not found.");
-            db.Assignments.Remove(a); return Yes();
+            db.Assignments.Remove(a);
+            db.Completions.RemoveAll(item => item.AssignmentId == id);
+            return Yes();
         });
 
     public Result<bool> Toggle(Guid user, Guid id)
         => Write<bool>(db =>
         {
-            var student = db.Accounts.Find(user);
-            var a = db.Assignments.Find(id);
+            var student = db.Accounts.FirstOrDefault(item => item.Id == user);
+            var a = db.Assignments.FirstOrDefault(item => item.Id == id);
             if (student?.Role != Roles.Student || student.GroupId is not Guid group || a is null ||
                 !db.Courses.Any(c => c.Id == a.CourseId && c.GroupId == group))
                 return Fail<bool>("Assignment not found.");
-            var item = db.Completions.Find(user, id);
+            var item = db.Completions.FirstOrDefault(item => item.StudentId == user && item.AssignmentId == id);
             if (item is null) db.Completions.Add(new Completion { StudentId = user, AssignmentId = id });
             else db.Completions.Remove(item);
             return Yes();
@@ -282,7 +284,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var existing = db.Lessons.Find(l.Id);
+            var existing = db.Lessons.FirstOrDefault(item => item.Id == l.Id);
             if (existing is not null && !db.Courses.Any(c => c.Id == existing.CourseId && c.GroupId == group))
                 return Fail<bool>("Access denied.");
             var result = Changes.SaveLesson(GroupData(db, group), l);
@@ -297,7 +299,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
         => Write<bool>(db =>
         {
             if (!Owns(db, user, group)) return Fail<bool>("Access denied.");
-            var l = db.Lessons.Find(id);
+            var l = db.Lessons.FirstOrDefault(item => item.Id == id);
             if (l is null || !db.Courses.Any(c => c.Id == l.CourseId && c.GroupId == group))
                 return Fail<bool>("Lesson not found.");
             db.Lessons.Remove(l); return Yes();
@@ -310,7 +312,7 @@ public sealed class CampusService(IDbContextFactory<CampusDb> factory, IConfigur
             if (!db.Accounts.Any(a => a.Id == student && a.Role == Roles.Student && a.GroupId == group) ||
                 !db.Courses.Any(c => c.Id == course && c.GroupId == group)) return Fail<bool>("Select a student and course.");
             if (grade is < 0 or > 100) return Fail<bool>("Grade must be between 0 and 100.");
-            var current = db.Marks.Find(student, course);
+            var current = db.Marks.FirstOrDefault(item => item.StudentId == student && item.CourseId == course);
             if (grade is null) { if (current is not null) db.Marks.Remove(current); }
             else if (current is null) db.Marks.Add(new CourseMark { StudentId = student, CourseId = course, Grade = grade.Value });
             else current.Grade = grade.Value;

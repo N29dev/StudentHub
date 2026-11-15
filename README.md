@@ -1,6 +1,6 @@
 # StudentHub
 
-An academic management system built with C#, Blazor and SQLite for Introduction to Functional Programming.
+An academic management system built with C#, Blazor and JSON for Introduction to Functional Programming.
 
 ## Run locally
 
@@ -22,7 +22,7 @@ On Windows PowerShell set `$env:StudentHub__LecturerCode = "local-demo-code"` fi
 6. As the lecturer, refresh the group and use Students & grades to set a grade. The student can see their updated GPA after refreshing or navigating.
 7. Edit a profile and optionally upload a PNG/JPEG avatar.
 
-The database is created automatically in StudentHub/App_Data/campus.db. To reset the demo, stop the server and back up/delete that file and any associated SQLite WAL/SHM files. The earlier JSON file, if present, is not migrated or overwritten.
+The app creates StudentHub/App_Data/campus.json on the first successful change. To reset the demo, stop the server and back up/delete that file. The earlier single-user JSON and JSON storage, if present, are preserved but not migrated. The application has no external NuGet dependencies; only the test project needs xUnit packages.
 
 ## Test
 
@@ -34,10 +34,10 @@ The database is created automatically in StudentHub/App_Data/campus.db. To reset
 - StudentHub: Blazor pages, reusable UI, account endpoints, authorization, SQLite database and application services.
 - StudentHub.Tests: xUnit unit and integration tests.
 
-The functional core does not access storage, the clock or the UI. The service maps database rows to immutable values, applies validation and saves only successful changes.
+The functional core does not access storage, the clock or the UI. The service maps stored records to immutable values, applies validation and saves only successful changes. A lock serializes writes; a temporary file replaces the saved snapshot only after serialization succeeds.
 
 See [defense notes](docs/defense.md) and [manual QA](docs/qa.md).
 
 ## Limitations
 
-This is an educational local demo with one lecturer owner per group and one group per student. It does not implement institution-wide enrollment, email verification, account recovery, multi-lecturer groups or automatic live updates. No real student data is required. Use HTTPS, stronger operational controls and production-grade identity management before deploying online. The grading scale is illustrative. Assignment completion is a self-reported progress marker, not a file submission.
+This is an educational local demo with one lecturer owner per group and one group per student. It does not implement institution-wide enrollment, email verification, account recovery, multi-lecturer groups or automatic live updates. JSON storage is intended for one running server process and small datasets. No real student data is required. Use HTTPS, stronger operational controls and production-grade identity management before deploying online. The grading scale is illustrative. Assignment completion is a self-reported progress marker, not a file submission.

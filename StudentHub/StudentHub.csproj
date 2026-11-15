@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../StudentHub.Core/StudentHub.Core.csproj" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
   </ItemGroup>
 </Project>

@@ -8,8 +8,8 @@ StudentHub — Functional Academic Management System. Aim: help students and lec
 - WPF: desktop UI, Windows-oriented.
 - Blazor Interactive Server: C# components and responsive browser interface; requires a running server.
 - Blazor WebAssembly: browser execution; larger initial download and different persistence model.
-- JSON: convenient for a single-user prototype, but difficult to enforce relationships.
-- SQLite and EF Core: local relational database, no separate database server, constraints and transactions. PostgreSQL is a future option for a larger deployment.
+- JSON: built-in serialization, no database installation, appropriate for a small local demonstration. Relationships are checked by service code.
+- SQLite/EF Core or PostgreSQL: suitable for larger datasets and database-enforced constraints but require additional packages or infrastructure.
 
 ## Architecture
 ```mermaid
@@ -19,14 +19,14 @@ flowchart TD
     Auth --> Service[CampusService]
     UI --> Service
     Service --> Core[Pure academic functions]
-    Service --> EF[Entity Framework Core]
-    EF --> SQLite[(SQLite)]
+    Service --> Store[CampusStore]
+    Store --> JSON[(JSON file)]
     Tests[xUnit] --> Core
     Tests --> Service
 ```
-Functional Core / Imperative Shell. Core records and ImmutableArray represent snapshots. Changes validates and returns new data. CampusService authorizes operations, maps rows to immutable snapshots and commits validated database changes. The DB enforces unique keys, references and composite keys for grades and completion. Passwords are hashed, and cookie authentication identifies the current user; the service checks ownership before writes.
+Functional Core / Imperative Shell. Core records and ImmutableArray represent snapshots. Changes validates and returns new data. CampusService authorizes operations, maps stored entities to immutable snapshots and validates changes. CampusStore copies the previous snapshot and saves a new one only after successful validation. The service enforces unique emails, group/course names, ownership and references. Passwords are hashed, and cookie authentication identifies the current user; the service checks ownership before writes.
 
-## Data model
+## Logical data model (stored in JSON)
 ```mermaid
 erDiagram
     ACCOUNT ||--o{ ACADEMIC_GROUP : owns
@@ -49,13 +49,13 @@ erDiagram
 - Map / Bind: Map transforms success; Bind chains Result-returning functions; both propagate errors.
 - LINQ: Where, Select, Sum, GroupBy, OrderBy.
 - Pattern matching: grade thresholds, AssignmentStatus and Ok/Fail.
-- Side effects: database transactions and authentication are outside the functional core.
+- Side effects: file writes and authentication are outside the functional core.
 
 ## Suggested presentation outline
 1. Team members (both real names), topic, aim and objectives.
 2. Problem and practical significance.
 3. Technology comparison and reasons for choices.
-4. Architecture and database diagram.
+4. Architecture and logical data diagram.
 5. Development methodology and app mockups/screenshots.
 6. Functional programming examples.
 7. Live demo: lecturer creates group and task; student joins and completes task; lecturer enters grade; student views GPA.

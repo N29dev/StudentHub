@@ -15,6 +15,6 @@ Record the actual browser/device and result. Only mark checks after performing t
 - [ ] Check grade prediction with possible, impossible and invalid target inputs.
 - [ ] Edit profile, upload PNG/JPEG, reject oversized file, remove picture.
 - [ ] Sign out, then try opening a protected page.
-- [ ] Restart server and verify SQLite data persists.
+- [ ] Restart server and verify JSON data persists.
 - [ ] Check desktop/mobile viewport, two browsers, keyboard and system light/dark mode.
 - [ ] Run dotnet test StudentHub.Tests/StudentHub.Tests.csproj and record results.
